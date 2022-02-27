@@ -241,7 +241,7 @@ class FederatedAveragingOptimizer(optimizer.Optimizer):
             -1, [dtypes.bool], shapes=[[]], shared_name="sync_queue")
       train_ops = []
       aggregated_vars = []
-      with ops.name_scope(None, self._name + "/global"):
+      with ops.name_scope(None, f'{self._name}/global'):
         for var, gvar in zip(local_vars, global_vars):
           # pylint: disable=protected-access
           # Get reference to the tensor, this works with Variable and ResourceVariable
@@ -251,7 +251,8 @@ class FederatedAveragingOptimizer(optimizer.Optimizer):
             var_accum = data_flow_ops.ConditionalAccumulator(
                 var.dtype,
                 shape=var.get_shape(),
-                shared_name=gvar.name + "/var_accum")
+                shared_name=f'{gvar.name}/var_accum',
+            )
             # Add op to push local_var to accumulator
             train_ops.append(
                 var_accum.apply_grad(var, local_step=global_step))
@@ -316,11 +317,11 @@ class FederatedAveragingOptimizer(optimizer.Optimizer):
     Returns:
       refresh_ops: The ops to assign value of global vars to local vars.
     """
-    reassign_ops = []
-    for local_var, global_var in zip(local_vars, global_vars):
-      reassign_ops.append(state_ops.assign(local_var, global_var))
-    refresh_ops = control_flow_ops.group(*(reassign_ops))
-    return refresh_ops
+    reassign_ops = [
+        state_ops.assign(local_var, global_var)
+        for local_var, global_var in zip(local_vars, global_vars)
+    ]
+    return control_flow_ops.group(*(reassign_ops))
 
   def make_session_run_hook(self):
     """Creates a hook to handle federated average init operations."""

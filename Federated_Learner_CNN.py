@@ -110,10 +110,10 @@ print('Data loaded')
 is_chief = (FLAGS.task_index == 0)
 
 checkpoint_dir='logs_dir/federated_worker_{}/{}'.format(FLAGS.task_index, time())
-print('Checkpoint directory: ' + checkpoint_dir)
+print(f'Checkpoint directory: {checkpoint_dir}')
 
 worker_device = "/job:worker/task:%d" % FLAGS.task_index
-print('Worker device: ' + worker_device + ' - is_chief: {}'.format(is_chief))
+print(f'Worker device: {worker_device}' + ' - is_chief: {}'.format(is_chief))
 
 # Place all ops in the local worker by default
 with tf.device(worker_device):
@@ -246,11 +246,15 @@ with tf.device(worker_device):
 
         def after_run(self, run_context, run_values):
             step_value = run_values.results
-            if step_value % n_batches == 0 and not step_value == 0:
-                self._saver.save(run_context.session, checkpoint_dir+'/model.ckpt', step_value)
+            if step_value % n_batches == 0 and step_value != 0:
+                self._saver.save(
+                    run_context.session, f'{checkpoint_dir}/model.ckpt', step_value
+                )
 
         def end(self, session):
-            self._saver.save(session, checkpoint_dir+'/model.ckpt', session.run(global_step))
+            self._saver.save(
+                session, f'{checkpoint_dir}/model.ckpt', session.run(global_step)
+            )
 
     # Make sure we do not define a chief worker
     with tf.name_scope('monitored_session'):
@@ -296,10 +300,7 @@ if is_chief:
         plt.imshow(test_images[i], cmap=plt.cm.binary)
         predicted_label = np.argmax(predicted[i])
         true_label = test_labels[i]
-        if predicted_label == true_label:
-          color = 'green'
-        else:
-          color = 'red'
+        color = 'green' if predicted_label == true_label else 'red'
         plt.xlabel("{} ({})".format(class_names[predicted_label],
                                     class_names[true_label]),
                                     color=color)
