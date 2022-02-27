@@ -6,6 +6,7 @@ The code read the data files from PostgreSQL database
 Please find the 'points.csv' and 'labels.csv' on Github and import them into a PostgreSQL db, or
 modify the code to read all the data from csv files directly.
 """
+
 # ==============================================================================
 __author__ = "Ali Yazdizadeh"
 __date__ = "February 2018"
@@ -21,33 +22,26 @@ import time
 start_time = time.time()
 minibatch_size = 16
 seg_size = 70
-# Number of channels
-num_channels = 5
 # Number of classes
 num_classes = 4
 #Network architecture
 
 num_channels_ensemble = [5]
-num_filters_ensemble = []
-filters_size_ensemble = []
-num_stride_maxpool_ensemble = []
-num_stride_conv2d_ensemble = []
-maxpool_size_ensemble = []
-
 num_layers_ensemble = [5]
 num_networks = len(num_layers_ensemble)
-filters_size_ensemble.append([8,8,8,8,8])
+filters_size_ensemble = [[8, 8, 8, 8, 8]]
+num_filters_ensemble = [[96, 256, 384, 384, 256]]
+maxpool_size_ensemble = [[8, 8, 8, 8, 8]]
+num_stride_conv2d_ensemble = [
+    [2 for _ in range(item_)] for item_ in num_layers_ensemble
+]
 
-num_filters_ensemble.append([96,256,384,384,256])
-
-maxpool_size_ensemble.append([8,8,8,8,8])
-for i in range(len(num_layers_ensemble)):
-    num_stride_conv2d_ensemble.append([2 for k in range(0, num_layers_ensemble[i])])
-
-for i in range(len(num_layers_ensemble)):
-    num_stride_maxpool_ensemble.append([2 for k in range(0, num_layers_ensemble[i])])
+num_stride_maxpool_ensemble = [
+    [2 for _ in range(item)] for item in num_layers_ensemble
+]
 
 weights_ensemble = []
+num_channels = 5
 for i in range(len(filters_size_ensemble)):
 
     filters_size = filters_size_ensemble[i]
@@ -70,11 +64,11 @@ def parameters_weights():
     num_filters_ensemble.append([96, 256, 384, 384, 256])
 
     maxpool_size_ensemble.append([8, 8, 8, 8, 8])
-    for i in range(len(num_layers_ensemble)):
-        num_stride_conv2d_ensemble.append([2 for k in range(0, num_layers_ensemble[i])])
+    for item_ in num_layers_ensemble:
+        num_stride_conv2d_ensemble.append([2 for _ in range(item_)])
 
-    for i in range(len(num_layers_ensemble)):
-        num_stride_maxpool_ensemble.append([2 for k in range(0, num_layers_ensemble[i])])
+    for item in num_layers_ensemble:
+        num_stride_maxpool_ensemble.append([2 for _ in range(item)])
 
 
     weights_ensemble = []
@@ -143,50 +137,38 @@ def initialize_parameters(weights):
 def forward_propagation(X, parameters, num_stride_conv2d, maxpool_size, num_stride_maxpool):
     # Retrieve the parameters from the dictionary "parameters"
     for index, param in enumerate(parameters):
+        globals()['W{}'.format(index + 1)] = parameters['W{}'.format(index + 1)]
+
         # print(param)
         # print(index, 'index is')
         # print('num_stride_conv2d:',num_stride_conv2d[index])
         # print('num_stride_maxpool:', num_stride_maxpool[index])
         # Retrieve the parameters from the dictionary "parameters"
         if index == 0:
-            globals()['W{}'.format(index + 1)] = parameters['W{}'.format(index + 1)]
-
             # CONV2D: stride from num_stride_conv2d, padding 'SAME'
             globals()['Z{}'.format(index + 1)] = tf.nn.conv1d(X, filters=globals()['W{}'.format(index + 1)]
                                                               , stride=num_stride_conv2d[index],
                                                               padding='SAME')
 
-            # RELU
-            globals()['A{}'.format(index + 1)] = tf.nn.leaky_relu(globals()['Z{}'.format(index + 1)], alpha=0.02)
-            # tf.nn.relu(globals()['Z{}'.format(index + 1)])
-
-            # filter = tf.get_variable('weights', [5, 5, 1, 64],
-            #                          initializer=tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32),
-            #                          dtype=tf.float32)
-
-            # MAXPOOL: window size form stride from num_stride_maxpool, sride is the same size as window size, padding 'SAME'
-            globals()['P{}'.format(index + 1)] = tf.layers.max_pooling1d(globals()['A{}'.format(index + 1)],
-                                                                         pool_size=maxpool_size[index],
-                                                                         strides=num_stride_maxpool[index],
-                                                                         padding='SAME')
         else:
-            globals()['W{}'.format(index + 1)] = parameters['W{}'.format(index + 1)]
-
             # CONV2D: stride from num_stride_conv2d, padding 'SAME'
             globals()['Z{}'.format(index + 1)] = tf.nn.conv1d(globals()['P{}'.format(index)],
                                                               filters=globals()['W{}'.format(index + 1)]
                                                               , stride=num_stride_conv2d[index], padding='SAME')
 
-            # RELU
-            globals()['A{}'.format(index + 1)] = tf.nn.leaky_relu(globals()['Z{}'.format(index + 1)], alpha=0.02)
-            # tf.nn.relu(globals()['Z{}'.format(index + 1)])
+        # RELU
+        globals()['A{}'.format(index + 1)] = tf.nn.leaky_relu(globals()['Z{}'.format(index + 1)], alpha=0.02)
+        # tf.nn.relu(globals()['Z{}'.format(index + 1)])
 
-            # MAXPOOL: window size form stride from num_stride_maxpool, sride is the same size as window size, padding 'SAME'
-            globals()['P{}'.format(index + 1)] = tf.layers.max_pooling1d(globals()['A{}'.format(index + 1)],
-                                                                         pool_size=maxpool_size[index],
-                                                                         strides=num_stride_maxpool[index],
-                                                                         padding='SAME')
+        # filter = tf.get_variable('weights', [5, 5, 1, 64],
+        #                          initializer=tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32),
+        #                          dtype=tf.float32)
 
+        # MAXPOOL: window size form stride from num_stride_maxpool, sride is the same size as window size, padding 'SAME'
+        globals()['P{}'.format(index + 1)] = tf.layers.max_pooling1d(globals()['A{}'.format(index + 1)],
+                                                                     pool_size=maxpool_size[index],
+                                                                     strides=num_stride_maxpool[index],
+                                                                     padding='SAME')
     # FLATTEN
     globals()['P{}'.format(len(parameters))] = tf.contrib.layers.flatten(globals()['P{}'.format(len(parameters))])
 
@@ -200,8 +182,7 @@ def forward_propagation(X, parameters, num_stride_conv2d, maxpool_size, num_stri
     print(globals()['Z{}'.format(len(parameters) + 1)])
     print(globals()['P{}'.format(len(parameters))])
 
-    final_Z = globals()['Z{}'.format(len(parameters) + 1)]
-    return final_Z
+    return globals()['Z{}'.format(len(parameters) + 1)]
 
 
 ####################Computing Cost with softmax_cross_entropy in tensorflow#########################
@@ -217,10 +198,10 @@ def compute_cost(final_Z, Y, cl_weights):
     Returns:
     cost - Tensor of the cost function
     """
-    # without weights
-    # cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=final_Z, labels=Y))
-    # with weights
-    cost = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels=Y, logits=final_Z, weights=cl_weights))
-    return cost
+    return tf.reduce_mean(
+        tf.losses.softmax_cross_entropy(
+            onehot_labels=Y, logits=final_Z, weights=cl_weights
+        )
+    )
 
 
